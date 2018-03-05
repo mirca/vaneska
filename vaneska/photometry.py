@@ -3,6 +3,7 @@ to perform PSF photometry.
 """
 
 import tqdm
+import numpy as np
 
 class PSFPhotometry:
     def __init__(self, optimizer):
