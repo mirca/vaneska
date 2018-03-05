@@ -1,1 +1,1 @@
-playing with PSF photometry in Tensorflow
+`pip install vaneska`

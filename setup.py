@@ -22,7 +22,7 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 setup(
     name='vaneska',
     packages=['vaneska'],
-    version='0.0vapor',
+    version='0.0dev',
     description='Sweet PSF photometry tool for TESS',
     long_description=long_description,
     url='https://github.com/mirca/vaneska',
