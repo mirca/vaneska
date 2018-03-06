@@ -18,7 +18,7 @@ class PSFPhotometry:
     def __init__(self, optimizer):
         self.optimizer = optimizer
 
-    def fit(self, pixel_flux, data_placeholder, var_list, feed_dict, session):
+    def fit(self, pixel_flux, data_placeholder, var_list, session, feed_dict={}):
         """
         Parameters
         ----------
@@ -31,9 +31,9 @@ class PSFPhotometry:
             to `self.optimizer.minimize`.
         var_list : list
             The list of parameters (as tensors) to optimize for.
+        session : instance of tf.Session
         feed_dict : dict
             Dictionary of additional arguments used to feed the loss function.
-        session : instance of tf.Session
         """
         opt_params = []
         cadences = range(pixel_flux.shape[0])

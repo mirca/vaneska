@@ -4,6 +4,9 @@ This module has the code to infer PSF models.
 Interface:
     classes should be parametrized by, at least, flux and
     centroid positions, which should be of type tf.Variable.
+
+TODO:
+
 """
 
 import numpy as np
@@ -11,6 +14,10 @@ import tensorflow as tf
 
 class Gaussian:
     """
+    Pretty dumb Gaussian model.
+
+    Attributes
+    ----------
     shape : tuple
         shape of the TPF. (row_shape, col_shape)
     col_ref, row_ref : int, int
@@ -32,6 +39,23 @@ class Gaussian:
         return self.evaluate(*params)
 
     def evaluate(self, flux, xo, yo, a, b, c):
+        """
+        Evaluate the Gaussian model
+
+        Parameters
+        ----------
+        flux : tf.Variable
+        xo, yo : tf.Variable, tf.Variable
+            Center coordiantes of the Gaussian.
+        a, b, c : tf.Variable, tf.Variable
+            Parameters that control the rotation angle
+            and the stretch along the major axis of the Gaussian,
+            such that the matrix M = [a b ; b c] is positive-definite.
+
+        References
+        ----------
+        https://en.wikipedia.org/wiki/Gaussian_function#Two-dimensional_Gaussian_function
+        """
         psf = tf.exp(-(a * (self.x - xo) ** 2
                        + 2 * b * (self.x - xo) * (self.y - yo)
                        + c * (self.y - yo) ** 2))
