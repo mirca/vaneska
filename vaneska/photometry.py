@@ -17,4 +17,4 @@ class PSFPhotometry:
             self.optimizer.minimize(session=session, feed_dict={data_placeholder: pixel_flux[n]})
             opt_params.append([session.run(var) for var in var_list])
 
-        return np.asarray(opt_params)
+        return opt_params
