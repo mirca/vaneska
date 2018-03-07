@@ -83,4 +83,5 @@ class KeplerPRF:
         self.interp_tf = tf.py_func(self.interp, [dx, dy], tf.float64)
         return flux * self.interp_tf
 
-    def init_prf(self)
+    def init_prf(self):
+        pass
