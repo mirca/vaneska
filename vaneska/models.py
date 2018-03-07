@@ -71,6 +71,8 @@ class Moffat(Model):
         return self.evaluate(*params)
 
     def evaluate(self, flux, xo, yo, a, b, c, beta):
+        dx = self.x - xo
+        dy = self.y - yo
         psf = tf.divide(1., tf.pow(1. + a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2, beta))
         psf_sum = tf.reduce_sum(psf)
         return flux * psf / psf_sum
