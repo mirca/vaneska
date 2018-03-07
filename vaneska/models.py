@@ -12,7 +12,8 @@ TODO:
 import numpy as np
 import tensorflow as tf
 
-class Gaussian:
+
+class Model:
     """
     Pretty dumb Gaussian model.
 
@@ -35,6 +36,8 @@ class Gaussian:
         s1, s2 = self.shape
         self.y, self.x = np.mgrid[r:r+s1-1:1j*s1, c:c+s2-1:1j*s2]
 
+
+class Gaussian(Model):
     def __call__(self, *params):
         return self.evaluate(*params)
 
@@ -56,11 +59,22 @@ class Gaussian:
         ----------
         https://en.wikipedia.org/wiki/Gaussian_function#Two-dimensional_Gaussian_function
         """
-        psf = tf.exp(-(a * (self.x - xo) ** 2
-                       + 2 * b * (self.x - xo) * (self.y - yo)
-                       + c * (self.y - yo) ** 2))
+        dx = self.x - xo
+        dy = self.y - yo
+        psf = tf.exp(-(a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2))
         psf_sum = tf.reduce_sum(psf)
         return flux * psf / psf_sum
+
+
+class Moffat(Model):
+    def __call__(self, *params):
+        return self.evaluate(*params)
+
+    def evaluate(self, flux, xo, yo, a, b, c, beta):
+        psf = tf.divide(1., tf.pow(1. + a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2, beta))
+        psf_sum = tf.reduce_sum(psf)
+        return flux * psf / psf_sum
+
 
 class KeplerPRF:
     def __init__(self, channel, shape, col_ref, row_ref):
