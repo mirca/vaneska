@@ -61,3 +61,26 @@ class Gaussian:
                        + c * (self.y - yo) ** 2))
         psf_sum = tf.reduce_sum(psf)
         return flux * psf / psf_sum
+
+class KeplerPRF:
+    def __init__(self, channel, shape, col_ref, row_ref):
+        self.channel = channel
+        self.shape = shape
+        self.col_ref = col_ref
+        self.row_ref = row_ref
+
+        # self.x, self.y should be constant tensors
+        self.x, self.y, self.interp = self.init_prf()
+        x = tf.placeholder(dtype=tf.float64)
+        y = tf.placeholder(dtype=tf.float64)
+
+    def __call__(self, flux, xc, yc):
+        return self.evaluate(flux, xc, yc)
+
+    def evaluate(self, flux, xc, yc):
+        dx = self.x - xc
+        dy = self.y - yc
+        self.interp_tf = tf.py_func(self.interp, [dx, dy], tf.float64)
+        return flux * self.interp_tf
+
+    def init_prf(self)
