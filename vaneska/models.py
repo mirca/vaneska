@@ -96,8 +96,8 @@ class KeplerPRF:
         return self.evaluate(flux, xc, yc)
 
     def evaluate(self, flux, xc, yc):
-        dx = self.x - xc
-        dy = self.y - yc
+        dx = tf.subtract(self.x, xc)
+        dy = tf.subtract(self.y, yc)
         return flux * self.prf_func(dy, dx)
 
     def _read_prf_files(self, path, ext):
