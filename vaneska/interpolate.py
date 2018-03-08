@@ -19,7 +19,7 @@ class ScipyRectBivariateSpline:
     def _InterpolateGradImpl(self, x, y, bz):
         return bz * self.interp(x, y, dx=1), bz * self.interp(x, y, dy=1)
 
-    def _InterpolateGrad(op, grads):
+    def _InterpolateGrad(self, op, grads):
         return tf.py_func(self._InterpolateGradImpl, [op.inputs[0], op.inputs[1], grads[0]],
                           [tf.float64, tf.float64])
 
