@@ -90,7 +90,7 @@ class KeplerPRF:
         self.column = column
         self.row = row
         # self.x, self.y should be constant tensors
-        self.x, self.y, self.prf_func = self.init_prf()
+        self.x, self.y, self.prf_func, self.supersampled_prf = self.init_prf()
 
     def __call__(self, flux, xc, yc):
         return self.evaluate(flux, xc, yc)
@@ -157,4 +157,6 @@ class KeplerPRF:
         xp = np.arange(self.column + .5, self.column + self.shape[1] + .5)
         yp = np.arange(self.row + .5, self.row + self.shape[0] + .5)
 
-        return [tf.convert_to_tensor(xp), tf.convert_to_tensor(yp), prf_func]
+        return [tf.constant(xp, dtype=tf.float64),
+                tf.constant(yp, dtype=tf.float64),
+                prf_func, prf]
