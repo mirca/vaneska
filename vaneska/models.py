@@ -8,9 +8,14 @@ Interface:
 TODO:
 
 """
+import math
 
+from astropy.io import fits as pyfits
+from lightkurve.utils import channel_to_module_output
 import numpy as np
 import tensorflow as tf
+
+from .interpolate import ScipyRectBivariateSpline
 
 
 class Model:
@@ -79,16 +84,13 @@ class Moffat(Model):
 
 
 class KeplerPRF:
-    def __init__(self, channel, shape, col_ref, row_ref):
+    def __init__(self, channel, shape, column, row):
         self.channel = channel
         self.shape = shape
-        self.col_ref = col_ref
-        self.row_ref = row_ref
-
+        self.column = column
+        self.row = row
         # self.x, self.y should be constant tensors
-        self.x, self.y, self.interp = self.init_prf()
-        x = tf.placeholder(dtype=tf.float64)
-        y = tf.placeholder(dtype=tf.float64)
+        self.x, self.y, self.prf_func = self.init_prf()
 
     def __call__(self, flux, xc, yc):
         return self.evaluate(flux, xc, yc)
@@ -96,8 +98,63 @@ class KeplerPRF:
     def evaluate(self, flux, xc, yc):
         dx = self.x - xc
         dy = self.y - yc
-        self.interp_tf = tf.py_func(self.interp, [dx, dy], tf.float64)
-        return flux * self.interp_tf
+        return flux * self.prf_func(dy, dx)
+
+    def _read_prf_files(self, path, ext):
+        prf_file = pyfits.open(path)
+        prf_data = prf_file[ext].data
+        # looks like these data below are the same for all prf calibration files
+        crval1p = prf_file[ext].header['CRVAL1P']
+        crval2p = prf_file[ext].header['CRVAL2P']
+        cdelt1p = prf_file[ext].header['CDELT1P']
+        cdelt2p = prf_file[ext].header['CDELT2P']
+        prf_file.close()
+
+        return prf_data, crval1p, crval2p, cdelt1p, cdelt2p
 
     def init_prf(self):
-        pass
+        min_prf_weight = 1e-6 # minimum weight for the PRF
+        module, output = channel_to_module_output(self.channel)
+
+        # determine suitable PRF calibration file
+        if module < 10:
+            prefix = 'kplr0'
+        else:
+            prefix = 'kplr'
+        prfs_url_path = "http://archive.stsci.edu/missions/kepler/fpc/prf/extracted/"
+        prf_file_path = prfs_url_path + prefix + str(module) + '.' + str(output) + '_2011265_prf.fits'
+
+        # get the data of the PRF for the 5 supersampled PRFs
+        n_prfs = 5
+        prf_array = [0] * n_prfs
+        crval1p = np.zeros(n_prfs, dtype='float32')
+        crval2p = np.zeros(n_prfs, dtype='float32')
+        cdelt1p = np.zeros(n_prfs, dtype='float32')
+        cdelt2p = np.zeros(n_prfs, dtype='float32')
+        for i in range(n_prfs):
+            prf_array[i], crval1p[i], crval2p[i], cdelt1p[i], cdelt2p[i] = self._read_prf_files(prf_file_path, i+1)
+        prf_array = np.array(prf_array)
+
+        x = np.arange(.5 * (1. - prf_array[0].shape[1]),
+                      .5 * (1. + prf_array[0].shape[1])) * cdelt1p[1]
+        y = np.arange(.5 * (1. - prf_array[0].shape[0]),
+                      .5 * (1. + prf_array[0].shape[0])) * cdelt1p[0]
+
+        prf = np.zeros_like(prf_array[0])
+        ref_column = self.column + .5 * self.shape[1]
+        ref_row = self.row + .5 * self.shape[0]
+        # Weight those 5 PRFs w.r.t. the distance from the target star
+        for i in range(n_prfs):
+            prf_weight = math.sqrt((ref_column - crval1p[i]) ** 2
+                                    + (ref_row - crval2p[i]) ** 2)
+            if prf_weight < min_prf_weight:
+                prf_weight = min_prf_weight
+            prf += prf_array[i] / prf_weight
+        prf /= (np.nansum(prf) * cdelt1p[0] * cdelt2p[0])
+
+        # give the PRF a "parametrizable" form
+        prf_func = ScipyRectBivariateSpline(x, y, prf)
+        xp = np.arange(self.column + .5, self.column + self.shape[1] + .5)
+        yp = np.arange(self.row + .5, self.row + self.shape[0] + .5)
+
+        return [tf.convert_to_tensor(xp), tf.convert_to_tensor(yp), prf_func]
