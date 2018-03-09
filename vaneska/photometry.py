@@ -39,7 +39,7 @@ class PSFPhotometry:
         cadences = range(pixel_flux.shape[0])
 
         for n in tqdm.tqdm(cadences):
-            feed_dict.update({data_placeholder: pixel_flux[n]})
+            feed_dict[data_placeholder] = pixel_flux[n]
             self.optimizer.minimize(session=session, feed_dict=feed_dict)
             opt_params.append([session.run(var) for var in var_list])
 
