@@ -2,3 +2,4 @@
 vaneska.egg-info/
 mastDownload/
 __pycache__/
+.cache
