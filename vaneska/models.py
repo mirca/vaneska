@@ -135,10 +135,10 @@ class KeplerPRF:
             prf_array[i], crval1p[i], crval2p[i], cdelt1p[i], cdelt2p[i] = self._read_prf_files(prf_file_path, i+1)
         prf_array = np.array(prf_array)
 
-        x = np.arange(.5 * (1. - prf_array[0].shape[1]),
-                      .5 * (1. + prf_array[0].shape[1])) * cdelt1p[1]
-        y = np.arange(.5 * (1. - prf_array[0].shape[0]),
-                      .5 * (1. + prf_array[0].shape[0])) * cdelt1p[0]
+        column = np.arange(.5 * (1. - prf_array[0].shape[1]),
+                           .5 * (1. + prf_array[0].shape[1])) * cdelt1p[1]
+        row = np.arange(.5 * (1. - prf_array[0].shape[0]),
+                        .5 * (1. + prf_array[0].shape[0])) * cdelt1p[0]
 
         prf = np.zeros_like(prf_array[0])
         ref_column = self.column + .5 * self.shape[1]
@@ -153,7 +153,7 @@ class KeplerPRF:
         prf /= (np.nansum(prf) * cdelt1p[0] * cdelt2p[0])
 
         # give the PRF a "parametrizable" form
-        prf_func = ScipyRectBivariateSpline(x, y, prf)
+        prf_func = ScipyRectBivariateSpline(row, column, prf)
         xp = np.arange(self.column + .5, self.column + self.shape[1] + .5)
         yp = np.arange(self.row + .5, self.row + self.shape[0] + .5)
 
