@@ -112,9 +112,10 @@ class KeplerPRF:
         return prf_data, crval1p, crval2p, cdelt1p, cdelt2p
 
     def init_prf(self):
+        ref_column = self.column + .5 * self.shape[1]
+        ref_row = self.row + .5 * self.shape[0]
         min_prf_weight = 1e-6 # minimum weight for the PRF
         module, output = channel_to_module_output(self.channel)
-
         # determine suitable PRF calibration file
         if module < 10:
             prefix = 'kplr0'
@@ -122,39 +123,27 @@ class KeplerPRF:
             prefix = 'kplr'
         prfs_url_path = "http://archive.stsci.edu/missions/kepler/fpc/prf/extracted/"
         prf_file_path = prfs_url_path + prefix + str(module) + '.' + str(output) + '_2011265_prf.fits'
-
         # get the data of the PRF for the 5 supersampled PRFs
-        n_prfs = 5
-        prf_array = [0] * n_prfs
-        crval1p = np.zeros(n_prfs, dtype='float32')
-        crval2p = np.zeros(n_prfs, dtype='float32')
-        for i in range(n_prfs):
-            prf_array[i], crval1p[i], crval2p[i], cdelt1p, cdelt2p = self._read_prf_files(prf_file_path, i+1)
-        prf_array = np.array(prf_array)
-
-        column_array = np.arange(.5 * (1. - prf_array[0].shape[1]),
-                                 .5 * (1. + prf_array[0].shape[1])) * cdelt1p
-        row_array = np.arange(.5 * (1. - prf_array[0].shape[0]),
-                              .5 * (1. + prf_array[0].shape[0])) * cdelt2p
-
-        prf = np.zeros_like(prf_array[0])
-        ref_column = self.column + .5 * self.shape[1]
-        ref_row = self.row + .5 * self.shape[0]
-
-        # Weight those 5 PRFs w.r.t. the distance from the target star
-        prf_weights = np.sqrt((ref_column - crval1p) ** 2
-                              + (ref_row - crval2p) ** 2)
-        mask = prf_weights < min_prf_weight
-        prf_weights[mask] = min_prf_weight
-
-        normalized_prf = np.sum(np.sum(prf_array, axis=(1, 2)) / prf_weights)
-        normalized_prf /= np.sum(normalized_prf * cdelt1p * cdelt2p)
-
+        n_ext = 5
+        prf_array = 0
+        for i in range(n_ext):
+            prf, crval1p, crval2p, cdelt1p, cdelt2p = self._read_prf_files(prf_file_path, i+1)
+            # Weight those each PRF w.r.t. the distance from the target star
+            prf_weight = math.sqrt((ref_column - crval1p) ** 2 + (ref_row - crval2p) ** 2)
+            if prf_weight < min_prf_weight:
+                prf_weight = 1e-6
+            prf_array += prf / prf_weight
+        prf_array /= np.sum(prf_array * cdelt1p * cdelt2p)
+        # create column and row arrays
+        column_array = np.arange(.5 * (1. - prf_array.shape[1]),
+                                 .5 * (1. + prf_array.shape[1])) * cdelt1p
+        row_array = np.arange(.5 * (1. - prf_array.shape[0]),
+                              .5 * (1. + prf_array.shape[0])) * cdelt2p
         # give the PRF a "parametrizable" form
-        prf_spline = ScipyRectBivariateSpline(row_array, column_array, normalized_prf)
+        prf_spline = ScipyRectBivariateSpline(row_array, column_array, prf_array)
         xp = np.arange(self.column + .5, self.column + self.shape[1] + .5)
         yp = np.arange(self.row + .5, self.row + self.shape[0] + .5)
 
         return [tf.constant(xp, dtype=tf.float64),
                 tf.constant(yp, dtype=tf.float64),
-                prf_spline, normalized_prf]
+                prf_spline, prf_array]
