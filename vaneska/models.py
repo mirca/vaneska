@@ -89,7 +89,6 @@ class KeplerPRF:
         self.shape = shape
         self.column = column
         self.row = row
-        # self.x, self.y should be constant tensors
         self.x, self.y, self.prf_func, self.supersampled_prf = self.init_prf()
 
     def __call__(self, flux, xc, yc):
@@ -129,34 +128,33 @@ class KeplerPRF:
         prf_array = [0] * n_prfs
         crval1p = np.zeros(n_prfs, dtype='float32')
         crval2p = np.zeros(n_prfs, dtype='float32')
-        cdelt1p = np.zeros(n_prfs, dtype='float32')
-        cdelt2p = np.zeros(n_prfs, dtype='float32')
         for i in range(n_prfs):
-            prf_array[i], crval1p[i], crval2p[i], cdelt1p[i], cdelt2p[i] = self._read_prf_files(prf_file_path, i+1)
+            prf_array[i], crval1p[i], crval2p[i], cdelt1p, cdelt2p = self._read_prf_files(prf_file_path, i+1)
         prf_array = np.array(prf_array)
 
-        column = np.arange(.5 * (1. - prf_array[0].shape[1]),
-                           .5 * (1. + prf_array[0].shape[1])) * cdelt1p[1]
-        row = np.arange(.5 * (1. - prf_array[0].shape[0]),
-                        .5 * (1. + prf_array[0].shape[0])) * cdelt1p[0]
+        column_array = np.arange(.5 * (1. - prf_array[0].shape[1]),
+                                 .5 * (1. + prf_array[0].shape[1])) * cdelt1p
+        row_array = np.arange(.5 * (1. - prf_array[0].shape[0]),
+                              .5 * (1. + prf_array[0].shape[0])) * cdelt2p
 
         prf = np.zeros_like(prf_array[0])
         ref_column = self.column + .5 * self.shape[1]
         ref_row = self.row + .5 * self.shape[0]
+
         # Weight those 5 PRFs w.r.t. the distance from the target star
-        for i in range(n_prfs):
-            prf_weight = math.sqrt((ref_column - crval1p[i]) ** 2
-                                    + (ref_row - crval2p[i]) ** 2)
-            if prf_weight < min_prf_weight:
-                prf_weight = min_prf_weight
-            prf += prf_array[i] / prf_weight
-        prf /= (np.nansum(prf) * cdelt1p[0] * cdelt2p[0])
+        prf_weights = np.sqrt((ref_column - crval1p) ** 2
+                              + (ref_row - crval2p) ** 2)
+        mask = prf_weights < min_prf_weight
+        prf_weights[mask] = min_prf_weight
+
+        normalized_prf = np.sum(np.sum(prf_array, axis=(1, 2)) / prf_weights)
+        normalized_prf /= np.sum(normalized_prf * cdelt1p * cdelt2p)
 
         # give the PRF a "parametrizable" form
-        prf_func = ScipyRectBivariateSpline(row, column, prf)
+        prf_spline = ScipyRectBivariateSpline(row_array, column_array, normalized_prf)
         xp = np.arange(self.column + .5, self.column + self.shape[1] + .5)
         yp = np.arange(self.row + .5, self.row + self.shape[0] + .5)
 
         return [tf.constant(xp, dtype=tf.float64),
                 tf.constant(yp, dtype=tf.float64),
-                prf_func, prf]
+                prf_spline, normalized_prf]
