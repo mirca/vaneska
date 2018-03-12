@@ -3,9 +3,13 @@ import scipy
 import tensorflow as tf
 from tensorflow.python.framework import ops
 
-# interp is an object of scipy.interpolate.RectBivariateSpline
 
 class ScipyRectBivariateSpline:
+    """Interface for scipy.interpolate.RectBivariateSpline in
+    Tensorflow. For documentation details see the
+    `SciPy docs <https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.RectBivariateSpline.html>`_.
+    """
+
     def __call__(self, x, y, name=None):
         return self.interpolate(x, y, name)
 
