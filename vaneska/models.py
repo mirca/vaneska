@@ -84,11 +84,12 @@ class Moffat(Model):
 
 
 class KeplerPRF:
-    def __init__(self, channel, shape, column, row):
+    def __init__(self, channel, shape, column, row, ss_factor):
         self.channel = channel
         self.shape = shape
         self.column = column
         self.row = row
+        self.ss = ss_factor
         self.x, self.y, self.prf_func, self.supersampled_prf = self.init_prf()
 
     def __call__(self, flux, xc, yc):
@@ -107,6 +108,13 @@ class KeplerPRF:
         crval2p = prf_file[ext].header['CRVAL2P']
         cdelt1p = prf_file[ext].header['CDELT1P']
         cdelt2p = prf_file[ext].header['CDELT2P']
+        
+        prf_data = prf_data.reshape(int(len(prf_data[0])/self.ss), self.ss, int(len(prf_data[:,0])/self.ss), self.ss)
+        prf_data = np.nansum(prf_data, axis=(1, 3))
+
+        cdelt1p *= self.ss
+        cdelt2p *= self.ss
+        
         prf_file.close()
 
         return prf_data, crval1p, crval2p, cdelt1p, cdelt2p
