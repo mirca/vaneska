@@ -110,13 +110,6 @@ class KeplerPRF:
         cdelt1p = prf_file[ext].header['CDELT1P']
         cdelt2p = prf_file[ext].header['CDELT2P']
         
-        
-        #prf_data = prf_data.reshape(int(len(prf_data[0])/self.ss), self.ss, int(len(prf_data[:,0])/self.ss), self.ss)
-        #prf_data = np.nansum(prf_data, axis=(1, 3))
-
-        #cdelt1p *= self.ss
-        #cdelt2p *= self.ss
-        
         prf_file.close()
 
         return prf_data, crval1p, crval2p, cdelt1p, cdelt2p
@@ -161,9 +154,7 @@ class KeplerPRF:
         
         column_array = np.linspace(x0, x1, npts)
         row_array = np.linspace(y0, y1, npts)
-        prf_array = prf_init._Interpolate(column_array, row_array)
-        #prf_array = prf_init(column_array, row_array)
-        
+        prf_array = prf_init._Interpolate(column_array, row_array)        
 
         # give the PRF a "parametrizable" form
         prf_spline = ScipyRectBivariateSpline(row_array, column_array, prf_array)
