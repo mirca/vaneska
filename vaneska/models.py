@@ -84,11 +84,12 @@ class Moffat(Model):
 
 
 class KeplerPRF:
-    def __init__(self, channel, shape, column, row, ss_factor):
+    def __init__(self, channel, shape, column, row, ss_factor = 50, npix = 11):
         self.channel = channel
         self.shape = shape
         self.column = column
         self.row = row
+        self.npix = npix
         self.ss = ss_factor
         self.x, self.y, self.prf_func, self.supersampled_prf = self.init_prf()
 
@@ -109,11 +110,12 @@ class KeplerPRF:
         cdelt1p = prf_file[ext].header['CDELT1P']
         cdelt2p = prf_file[ext].header['CDELT2P']
         
-        prf_data = prf_data.reshape(int(len(prf_data[0])/self.ss), self.ss, int(len(prf_data[:,0])/self.ss), self.ss)
-        prf_data = np.nansum(prf_data, axis=(1, 3))
+        
+        #prf_data = prf_data.reshape(int(len(prf_data[0])/self.ss), self.ss, int(len(prf_data[:,0])/self.ss), self.ss)
+        #prf_data = np.nansum(prf_data, axis=(1, 3))
 
-        cdelt1p *= self.ss
-        cdelt2p *= self.ss
+        #cdelt1p *= self.ss
+        #cdelt2p *= self.ss
         
         prf_file.close()
 
@@ -133,20 +135,36 @@ class KeplerPRF:
         prf_file_path = prfs_url_path + prefix + str(module) + '.' + str(output) + '_2011265_prf.fits'
         # get the data of the PRF for the 5 supersampled PRFs
         n_ext = 5
-        prf_array = 0
+        prf_default = 0
         for i in range(n_ext):
             prf, crval1p, crval2p, cdelt1p, cdelt2p = self._read_prf_files(prf_file_path, i+1)
             # Weight those each PRF w.r.t. the distance from the target star
             prf_weight = math.sqrt((ref_column - crval1p) ** 2 + (ref_row - crval2p) ** 2)
             if prf_weight < min_prf_weight:
                 prf_weight = 1e-6
-            prf_array += prf / prf_weight
-        prf_array /= np.sum(prf_array * cdelt1p * cdelt2p)
+            prf_default += prf / prf_weight
+        prf_default /= np.sum(prf_default * cdelt1p * cdelt2p)
         # create column and row arrays
-        column_array = np.arange(.5 * (1. - prf_array.shape[1]),
-                                 .5 * (1. + prf_array.shape[1])) * cdelt1p
-        row_array = np.arange(.5 * (1. - prf_array.shape[0]),
-                              .5 * (1. + prf_array.shape[0])) * cdelt2p
+        column_default = np.arange(.5 * (1. - prf_default.shape[1]),
+                                 .5 * (1. + prf_default.shape[1])) * cdelt1p
+        row_default = np.arange(.5 * (1. - prf_default.shape[0]),
+                              .5 * (1. + prf_default.shape[0])) * cdelt2p
+        
+
+        prf_init = ScipyRectBivariateSpline(row_default, column_default, prf_default)
+        
+        x0 = -1*self.npix/2.0
+        x1 = self.npix/2.0
+        y0 = -1*self.npix/2.0
+        y1 = self.npix/2.0
+        npts = self.npix*self.ss
+        
+        column_array = np.linspace(x0, x1, npts)
+        row_array = np.linspace(y0, y1, npts)
+        prf_array = prf_init._Interpolate(column_array, row_array)
+        #prf_array = prf_init(column_array, row_array)
+        
+
         # give the PRF a "parametrizable" form
         prf_spline = ScipyRectBivariateSpline(row_array, column_array, prf_array)
         xp = np.arange(self.column + .5, self.column + self.shape[1] + .5)
